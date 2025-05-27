@@ -39,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text,
           _passwordController.text,
         );
-      
+
         if (!mounted) return;
-      
+
         // 사용자 역할에 따라 다른 화면으로 이동
         if (authProvider.userRole == UserRole.superAdmin) {
           Navigator.pushReplacement(
@@ -293,6 +293,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: isSmallScreen ? 14 : 16,
                           ),
                         ),
+                      ),
+                      // 로그인 폼 아래쪽에
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/sensor'),
+                        child: const Text('센서 모니터링 보기'),
                       ),
                     ],
                   ),

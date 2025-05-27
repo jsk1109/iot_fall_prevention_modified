@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/admin_screen.dart';
+import 'screens/sensor_monitor.dart';
+
 import 'providers/auth_provider.dart';
 import 'providers/patient_provider.dart';
 // import 'services/fcm_service.dart';
 
-// Flutter 애플리케이션의 진입점
+/// Flutter 애플리케이션의 진입점
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Firebase 초기화 (주석 처리됨)
@@ -21,7 +24,7 @@ void main() async {
   runApp(const MyApp());
 }
 
-// 애플리케이션의 루트 위젯
+/// 애플리케이션의 루트 위젯
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -42,18 +45,24 @@ class MyApp extends StatelessWidget {
           fontFamily: 'NotoSans',
           textTheme: const TextTheme(
             displayLarge: TextStyle(
-                fontSize: 30.0,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87),
+              fontSize: 30.0,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
             titleLarge: TextStyle(
-                fontSize: 20.0,
-                fontWeight: FontWeight.w500,
-                color: Colors.black54),
-            bodyMedium: TextStyle(fontSize: 16.0, color: Colors.black87),
+              fontSize: 20.0,
+              fontWeight: FontWeight.w500,
+              color: Colors.black54,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 16.0,
+              color: Colors.black87,
+            ),
           ),
           buttonTheme: ButtonThemeData(
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0)),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
             buttonColor: Colors.lightBlueAccent,
             textTheme: ButtonTextTheme.primary,
           ),
@@ -62,14 +71,17 @@ class MyApp extends StatelessWidget {
               foregroundColor: Colors.white,
               backgroundColor: Colors.lightBlueAccent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0)),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
             ),
           ),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
               foregroundColor: Colors.lightBlueAccent,
-              textStyle:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           appBarTheme: const AppBarTheme(
@@ -100,18 +112,24 @@ class MyApp extends StatelessWidget {
           fontFamily: 'NotoSans',
           textTheme: const TextTheme(
             displayLarge: TextStyle(
-                fontSize: 30.0,
-                fontWeight: FontWeight.w600,
-                color: Colors.white),
+              fontSize: 30.0,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
             titleLarge: TextStyle(
-                fontSize: 20.0,
-                fontWeight: FontWeight.w500,
-                color: Colors.white70),
-            bodyMedium: TextStyle(fontSize: 16.0, color: Colors.white70),
+              fontSize: 20.0,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 16.0,
+              color: Colors.white70,
+            ),
           ),
           buttonTheme: ButtonThemeData(
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0)),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
             buttonColor: Colors.blueGrey,
             textTheme: ButtonTextTheme.primary,
           ),
@@ -120,20 +138,26 @@ class MyApp extends StatelessWidget {
               foregroundColor: Colors.white,
               backgroundColor: Colors.blueGrey,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0)),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
             ),
           ),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
               foregroundColor: Colors.lightBlueAccent,
-              textStyle:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.blueGrey,
             titleTextStyle: TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           colorScheme: const ColorScheme.dark(
             primary: Colors.blueGrey,
@@ -151,6 +175,8 @@ class MyApp extends StatelessWidget {
           '/home': (context) => const HomeScreen(),
           // 관리자 화면
           '/admin': (context) => const AdminScreen(),
+          // 센서 모니터링 화면
+          '/sensor': (context) => const SensorMonitorScreen(),
         },
       ),
     );
