@@ -110,17 +110,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         size: isSmallScreen ? 80 : 120,
                         color: Colors.blue.shade700,
                       ),
-                      SizedBox(height: isSmallScreen ? 24 : 32),
+                      SizedBox(height: isSmallScreen ? 24 : 28),
                       // 제목
                       Text(
                         'IoT 스마트 낙상 예방 시스템',
                         style: TextStyle(
-                          fontSize: isSmallScreen ? 24 : 32,
+                          fontSize: isSmallScreen ? 24 : 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.blue.shade900,
                         ),
-                        textAlign: TextAlign.center,
                       ),
+
                       SizedBox(height: isSmallScreen ? 8 : 16),
                       Text(
                         '안전한 환자 관리의 시작',
