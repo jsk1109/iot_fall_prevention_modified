@@ -1,3 +1,4 @@
+// lib/screens/sensor_monitor.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -27,12 +28,11 @@ class SensorData {
   factory SensorData.fromJson(Map<String, dynamic> json) {
     final v = json['value'] as Map<String, dynamic>;
 
-    // call
     bool _toBool(dynamic raw) {
       if (raw is bool) return raw;
       if (raw is num) return raw != 0; // 0 → false, 그 외 숫자 → true
       final s = raw.toString().toLowerCase();
-      return (s == 'true' || s == '1'); // 혹시 문자열 "true"/"1" 등일 경우 처리
+      return (s == 'true' || s == '1');
     }
 
     return SensorData(
@@ -53,7 +53,6 @@ class SensorMonitorScreen extends StatefulWidget {
 }
 
 class _SensorMonitorScreenState extends State<SensorMonitorScreen> {
-  // 실제 배포된 API 엔드포인트
   static const _apiUrl =
       'https://hkf0mt14ca.execute-api.ap-northeast-2.amazonaws.com/dev/devicedata';
 
@@ -96,32 +95,50 @@ class _SensorMonitorScreenState extends State<SensorMonitorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sensor Monitor')),
+      appBar: AppBar(
+        title: const Text('Sensor Monitor'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _loading = true;
+                _error = null;
+              });
+              _fetchData();
+            },
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : ListView.builder(
-                  itemCount: _items.length,
-                  itemBuilder: (ctx, i) {
-                    final d = _items[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        title: Text(d.entityKey),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Time: ${d.timestamp}'),
-                            Text('Call: ${d.call ? "감지됨" : "감지 안됨"}'),
-                            Text('Fall: ${d.fall ? "낙상 감지" : "정상"}'),
-                            Text('Ultra: ${d.ultraSonic ? "거리 가까움" : "거리 멀음"}'),
-                          ],
+              : RefreshIndicator(
+                  onRefresh: _fetchData,
+                  child: ListView.builder(
+                    itemCount: _items.length,
+                    itemBuilder: (ctx, i) {
+                      final d = _items[i];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: ListTile(
+                          title: Text(d.entityKey),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Time: ${d.timestamp}'),
+                              Text('Call: ${d.call ? "감지됨" : "감지 안됨"}'),
+                              Text('Fall: ${d.fall ? "낙상 감지" : "정상"}'),
+                              Text(
+                                  'Ultra: ${d.ultraSonic ? "거리 가까움" : "거리 멀음"}'),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
     );
   }
