@@ -18,25 +18,25 @@
 
 ## 3. 시스템 아키텍처
 
-Edge (환자 환경): 라즈베리파이가 아두이노에 연결된 LiDAR/초음파 센서 데이터를 분석하여 낙상을 판단하고, 결과를 클라우드로 전송합니다.
+- Edge (환자 환경): 라즈베리파이가 아두이노에 연결된 LiDAR/초음파 센서 데이터를 분석하여 낙상을 판단하고, 결과를 클라우드로 전송합니다.
 
-Cloud (서버): FastAPI(Python) 기반의 API 서버가 이벤트를 수신하여 MySQL 데이터베이스에 저장합니다.
+- Cloud (서버): FastAPI(Python) 기반의 API 서버가 이벤트를 수신하여 MySQL 데이터베이스에 저장합니다.
 
-Client (관리자): Flutter 모바일 앱이 API 서버와 통신하여 실시간으로 환자 상태를 모니터링합니다.
+- Client (관리자): Flutter 모바일 앱이 API 서버와 통신하여 실시간으로 환자 상태를 모니터링합니다.
 
 ## 4. 기술 스택
 
-Frontend (Client): Flutter, Dart
+- Frontend (Client): Flutter, Dart
 
-Backend (Cloud): Python, FastAPI, SQLAlchemy
+- Backend (Cloud): Python, FastAPI, SQLAlchemy
 
-Edge Computing: Raspberry Pi 4, Python, Arduino
+- Edge Computing: Raspberry Pi 4, Python, Arduino
 
-Database: MySQL
+- Database: MySQL
 
-Infrastructure: Gabia Cloud, Nginx, Uvicorn
+- Infrastructure: Gabia Cloud, Nginx, Uvicorn
 
-Sensors: TF Luna LiDAR, Ultrasonic Sensor (HC-SR04)
+- Sensors: TF Luna LiDAR, Ultrasonic Sensor (HC-SR04)
 
 ## 5. 프로젝트 현황 (2학기 진행)
 
