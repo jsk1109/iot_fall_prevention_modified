@@ -4,14 +4,15 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../models/patient_model.dart';
-import '../models/sensor_data.dart';
+import '../models/sensor_data.dart'; // SensorData 모델 import 확인
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import './bed_monitor_screen.dart'; // 새로 만든 침대 모니터링 화면 import
 
 // 환자 정보와 마지막 이벤트 정보를 묶는 데이터 클래스
 class PatientEventData {
   final Patient patient;
-  final SensorData? lastEvent;
+  final SensorData? lastEvent; // 이벤트 없을 수 있음 (nullable)
 
   PatientEventData({required this.patient, this.lastEvent});
 }
@@ -29,10 +30,8 @@ class _StaffScreenState extends State<StaffScreen> {
   Timer? _timer;
   DateTime? _lastUpdated;
 
-  // [추가] 알림 기능을 위한 상태 변수
-  // Key: 환자 ID, Value: 마지막으로 알려진 이벤트의 고유 ID
+  // 알림 기능 관련 변수
   Map<String, int> _lastKnownEventIds = {};
-  // 처음 로드할 때는 알림을 띄우지 않기 위한 플래그
   bool _isFirstLoad = true;
 
   @override
@@ -50,6 +49,7 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
+  // 서버로부터 환자 목록과 각 환자의 마지막 이벤트 가져오기
   Future<List<PatientEventData>> _fetchDashboardData() async {
     final List<Patient> patients =
         await ApiService.getAllPatients(widget.staffId);
@@ -70,9 +70,8 @@ class _StaffScreenState extends State<StaffScreen> {
     return combinedData;
   }
 
-  // [수정] 데이터 로드 후 알림 체크 로직 추가
+  // 데이터 로드 및 알림 체크
   Future<void> _loadData() async {
-    // FutureBuilder가 화면을 계속 그리도록 Future를 먼저 설정
     final future = _fetchDashboardData();
     if (mounted) {
       setState(() {
@@ -81,14 +80,9 @@ class _StaffScreenState extends State<StaffScreen> {
     }
 
     try {
-      // API 호출이 완료될 때까지 기다림
       final newDashboardData = await future;
       if (!mounted) return;
-
-      // [핵심] 새로운 데이터와 이전 상태를 비교하여 알림을 발생시킴
-      _checkForNewEvents(newDashboardData);
-
-      // 마지막 업데이트 시간 갱신
+      _checkForNewEvents(newDashboardData); // 알림 체크 함수 호출
       setState(() {
         _lastUpdated = DateTime.now();
       });
@@ -97,9 +91,8 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
-  // [추가] 새로운 이벤트를 확인하고 알림을 띄우는 함수
+  // 새로운 이벤트 확인 및 알림 표시
   void _checkForNewEvents(List<PatientEventData> newDashboardData) {
-    // 현재 API에서 가져온 최신 이벤트 목록을 Map 형태로 변환
     final newEventMap = <String, int>{};
     for (var data in newDashboardData) {
       if (data.lastEvent != null) {
@@ -107,33 +100,29 @@ class _StaffScreenState extends State<StaffScreen> {
       }
     }
 
-    // 앱이 처음 로드될 때의 처리
     if (_isFirstLoad) {
-      _lastKnownEventIds = newEventMap; // 현재 상태를 초기 상태로 저장
+      _lastKnownEventIds = newEventMap;
       _isFirstLoad = false;
-      return; // 첫 로드 시에는 알림을 보내지 않음
+      return;
     }
 
-    // 새로운 이벤트 확인
     for (var patientId in newEventMap.keys) {
-      // 이전 상태에 없던 새로운 이벤트가 발생했거나, 기존 이벤트가 다른 ID의 새 이벤트로 변경되었을 때
       if (!_lastKnownEventIds.containsKey(patientId) ||
           _lastKnownEventIds[patientId] != newEventMap[patientId]) {
         final newData = newDashboardData
             .firstWhere((d) => d.patient.patientId == patientId);
-        _showNewEventNotification(newData.patient, newData.lastEvent!);
+        // lastEvent가 null이 아닐 때만 알림 표시
+        if (newData.lastEvent != null) {
+          _showNewEventNotification(newData.patient, newData.lastEvent!);
+        }
       }
     }
-
-    // 다음 비교를 위해 현재 상태를 최신 상태로 업데이트
     _lastKnownEventIds = newEventMap;
   }
 
-  // [추가] SnackBar 알림을 표시하는 위젯
+  // SnackBar 알림 표시
   void _showNewEventNotification(Patient patient, SensorData event) {
-    if (!mounted) return; // 위젯이 화면에 없을 때는 실행하지 않음
-
-    // 이전 SnackBar가 있다면 지우고 새 것을 표시
+    if (!mounted) return;
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -143,7 +132,7 @@ class _StaffScreenState extends State<StaffScreen> {
         ),
         backgroundColor:
             event.type == 'fall' ? Colors.red.shade800 : Colors.blue.shade800,
-        duration: const Duration(seconds: 5), // 5초간 표시
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -175,7 +164,7 @@ class _StaffScreenState extends State<StaffScreen> {
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
               _lastUpdated != null
-                  ? '마지막 업데이트: ${DateFormat('HH:mm:ss').format(_lastUpdated!)}'
+                  ? '마지막 업데이트: ${DateFormat('HH:mm:ss').format(_lastUpdated!.toLocal())}' // 현지 시간으로 표시
                   : '데이터 로딩 중...',
               style: const TextStyle(color: Colors.white70),
             ),
@@ -200,6 +189,7 @@ class _StaffScreenState extends State<StaffScreen> {
             }
 
             final dashboardList = snapshot.data!;
+            // --- 여기가 수정된 부분 ---
             return ListView.builder(
               padding: const EdgeInsets.all(8.0),
               itemCount: dashboardList.length,
@@ -209,57 +199,81 @@ class _StaffScreenState extends State<StaffScreen> {
                 final event = data.lastEvent;
                 final hasEvent = event != null;
 
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                          color: hasEvent
-                              ? (event.type == 'fall'
-                                  ? Colors.red.shade400
-                                  : Colors.blue.shade400)
-                              : Colors.grey.shade300,
-                          width: 1.5)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.person_outline,
-                                color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${patient.patientName} (${patient.patientId})',
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold),
+                // [수정] Card 위젯을 GestureDetector로 감싸서 탭 기능 추가
+                return GestureDetector(
+                  onTap: () {
+                    // 탭하면 BedMonitorScreen으로 이동하면서 현재 Patient 객체 전달
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            BedMonitorScreen(patient: patient),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    // 카드 UI 시작
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    elevation: 3, // 그림자
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12), // 모서리 둥글게
+                        // 이벤트 상태에 따라 테두리 색상 변경
+                        side: BorderSide(
+                            color: hasEvent
+                                ? (event!.type == 'fall'
+                                    ? Colors.red.shade400
+                                    : Colors.blue.shade400)
+                                : Colors.grey.shade300,
+                            width: 1.5)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 환자 정보 행
+                          Row(
+                            children: [
+                              Icon(Icons.person_outline,
+                                  color: Theme.of(context).primaryColor),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${patient.patientName} (${patient.patientId})',
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            Text('${patient.roomId}호 / ${patient.bedId}침대',
-                                style: TextStyle(color: Colors.grey.shade700)),
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        if (hasEvent)
-                          _buildEventTile(event)
-                        else
-                          const Text('최근 이벤트 없음',
-                              style: TextStyle(color: Colors.grey)),
-                      ],
+                              // 방/침대 정보
+                              Text('${patient.roomId}호 / ${patient.bedId}침대',
+                                  style:
+                                      TextStyle(color: Colors.grey.shade700)),
+                            ],
+                          ),
+                          const Divider(height: 24), // 구분선
+                          // 이벤트 정보 표시 (있을 경우)
+                          if (hasEvent)
+                            _buildEventTile(
+                                event!) // 이벤트 타일 위젯 호출 (Null 아님을 보장)
+                          else
+                            const Text('최근 이벤트 없음',
+                                style:
+                                    TextStyle(color: Colors.grey)), // 이벤트 없을 때
+                        ],
+                      ),
                     ),
-                  ),
-                );
+                  ), // 카드 UI 끝
+                ); // GestureDetector 끝
               },
             );
+            // --- 수정 끝 ---
           },
         ),
       ),
     );
   }
 
+  // 이벤트 정보를 표시하는 위젯 (이전과 동일)
   Widget _buildEventTile(SensorData event) {
     final isFallEvent = event.type == 'fall';
     final icon =
@@ -276,8 +290,10 @@ class _StaffScreenState extends State<StaffScreen> {
                 fontWeight: FontWeight.w600, color: color, fontSize: 16),
           ),
         ),
-        Text(DateFormat('MM/dd HH:mm').format(event.timestamp)),
+        // 이벤트 발생 시간 (현지 시간으로)
+        Text(DateFormat('MM/dd HH:mm').format(event.timestamp.toLocal())),
       ],
     );
   }
-}
+} // _StaffScreenState 클래스 끝
+
