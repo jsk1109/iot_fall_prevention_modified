@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+// 1. 필요한 모델을 정확히 import합니다.
 import '../models/patient_model.dart';
-import '../models/sensor_data.dart'; // SensorData 모델 import 확인
-import '../providers/auth_provider.dart';
+// 'sensor_data.dart'는 삭제되었으므로, 'ultrasonic_data.dart'를 import합니다.
+import '../models/ultrasonic_data.dart' as model;
+import '../providers/auth_provider.dart' as auth_p;
 import '../services/api_service.dart';
-import './bed_monitor_screen.dart'; // 새로 만든 침대 모니터링 화면 import
+import './bed_monitor_screen.dart';
 
-// 환자 정보와 마지막 이벤트 정보를 묶는 데이터 클래스
+// 2. 데이터 클래스: Patient와 최신 UltrasonicU4Response를 묶습니다.
 class PatientEventData {
   final Patient patient;
-  final SensorData? lastEvent; // 이벤트 없을 수 있음 (nullable)
+  // SensorData 대신 model.UltrasonicU4Response를 사용합니다.
+  final model.UltrasonicU4Response? lastEvent;
 
   PatientEventData({required this.patient, this.lastEvent});
 }
@@ -30,7 +33,6 @@ class _StaffScreenState extends State<StaffScreen> {
   Timer? _timer;
   DateTime? _lastUpdated;
 
-  // 알림 기능 관련 변수
   Map<String, int> _lastKnownEventIds = {};
   bool _isFirstLoad = true;
 
@@ -38,6 +40,7 @@ class _StaffScreenState extends State<StaffScreen> {
   void initState() {
     super.initState();
     _loadData();
+    // 10초 타이머 유지
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _loadData();
     });
@@ -49,17 +52,20 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
-  // 서버로부터 환자 목록과 각 환자의 마지막 이벤트 가져오기
+  // 3. 서버로부터 환자 목록과 각 환자의 마지막 'ultrasonic_u4' 로그를 가져옵니다.
   Future<List<PatientEventData>> _fetchDashboardData() async {
-    final List<Patient> patients =
-        await ApiService.getAllPatients(widget.staffId);
+    final List<Patient> patients = await ApiService.getAllPatients();
     final List<PatientEventData> combinedData = [];
 
     for (var patient in patients) {
-      SensorData? mostRecentEvent;
+      model.UltrasonicU4Response? mostRecentEvent;
       try {
-        mostRecentEvent = await ApiService.getMostRecentEventForPatient(
-            patient.roomId, patient.bedId);
+        final List<model.UltrasonicU4Response> history =
+            await ApiService.getUltrasonicHistory(patient.bedId, limit: 1);
+
+        if (history.isNotEmpty) {
+          mostRecentEvent = history.last;
+        }
       } catch (e) {
         print("환자(${patient.patientId})의 이벤트 없음: $e");
       }
@@ -70,7 +76,6 @@ class _StaffScreenState extends State<StaffScreen> {
     return combinedData;
   }
 
-  // 데이터 로드 및 알림 체크
   Future<void> _loadData() async {
     final future = _fetchDashboardData();
     if (mounted) {
@@ -82,7 +87,7 @@ class _StaffScreenState extends State<StaffScreen> {
     try {
       final newDashboardData = await future;
       if (!mounted) return;
-      _checkForNewEvents(newDashboardData); // 알림 체크 함수 호출
+      _checkForNewEvents(newDashboardData);
       setState(() {
         _lastUpdated = DateTime.now();
       });
@@ -91,12 +96,12 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
-  // 새로운 이벤트 확인 및 알림 표시
+  // 4. 새로운 이벤트 확인 (UltrasonicU4Response의 data_id 기준)
   void _checkForNewEvents(List<PatientEventData> newDashboardData) {
     final newEventMap = <String, int>{};
     for (var data in newDashboardData) {
       if (data.lastEvent != null) {
-        newEventMap[data.patient.patientId] = data.lastEvent!.id;
+        newEventMap[data.patient.patientId] = data.lastEvent!.dataId;
       }
     }
 
@@ -111,27 +116,43 @@ class _StaffScreenState extends State<StaffScreen> {
           _lastKnownEventIds[patientId] != newEventMap[patientId]) {
         final newData = newDashboardData
             .firstWhere((d) => d.patient.patientId == patientId);
-        // lastEvent가 null이 아닐 때만 알림 표시
+
         if (newData.lastEvent != null) {
-          _showNewEventNotification(newData.patient, newData.lastEvent!);
+          // 5. fall_event 또는 call_button이 true일 때만 알림
+          if (newData.lastEvent!.fallEvent || newData.lastEvent!.callButton) {
+            _showNewEventNotification(newData.patient, newData.lastEvent!);
+          }
         }
       }
     }
     _lastKnownEventIds = newEventMap;
   }
 
-  // SnackBar 알림 표시
-  void _showNewEventNotification(Patient patient, SensorData event) {
+  // 6. 알림 표시 (UltrasonicU4Response 사용)
+  void _showNewEventNotification(
+      Patient patient, model.UltrasonicU4Response event) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
+
+    final String message;
+    final Color color;
+    if (event.fallEvent) {
+      message = "낙상 감지";
+      color = Colors.red.shade800;
+    } else if (event.callButton) {
+      message = "환자 호출";
+      color = Colors.blue.shade800;
+    } else {
+      return; // 둘 다 아니면 알림 없음
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '🚨 ${patient.patientName} (${patient.roomId}호/${patient.bedId}침대): ${event.value}',
+          '🚨 ${patient.patientName} (${patient.roomId}호/${patient.bedId}침대): $message',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor:
-            event.type == 'fall' ? Colors.red.shade800 : Colors.blue.shade800,
+        backgroundColor: color,
         duration: const Duration(seconds: 5),
       ),
     );
@@ -139,7 +160,7 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
+    final authProvider = context.watch<auth_p.AuthProvider>();
     return Scaffold(
       appBar: AppBar(
         title: Text(authProvider.nursingHomeName ?? '통합 모니터링'),
@@ -152,7 +173,7 @@ class _StaffScreenState extends State<StaffScreen> {
             icon: const Icon(Icons.logout),
             tooltip: '로그아웃',
             onPressed: () {
-              context.read<AuthProvider>().logout();
+              context.read<auth_p.AuthProvider>().logout();
               Navigator.pushNamedAndRemoveUntil(
                   context, '/login', (route) => false);
             },
@@ -164,7 +185,7 @@ class _StaffScreenState extends State<StaffScreen> {
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
               _lastUpdated != null
-                  ? '마지막 업데이트: ${DateFormat('HH:mm:ss').format(_lastUpdated!.toLocal())}' // 현지 시간으로 표시
+                  ? '마지막 업데이트: ${DateFormat('HH:mm:ss').format(_lastUpdated!.toLocal())}'
                   : '데이터 로딩 중...',
               style: const TextStyle(color: Colors.white70),
             ),
@@ -189,7 +210,7 @@ class _StaffScreenState extends State<StaffScreen> {
             }
 
             final dashboardList = snapshot.data!;
-            // --- 여기가 수정된 부분 ---
+
             return ListView.builder(
               padding: const EdgeInsets.all(8.0),
               itemCount: dashboardList.length,
@@ -197,12 +218,12 @@ class _StaffScreenState extends State<StaffScreen> {
                 final data = dashboardList[index];
                 final patient = data.patient;
                 final event = data.lastEvent;
-                final hasEvent = event != null;
+                // 7. 이벤트 유무 판단 (fall_event 또는 call_button)
+                final bool hasEvent =
+                    event != null && (event.fallEvent || event.callButton);
 
-                // [수정] Card 위젯을 GestureDetector로 감싸서 탭 기능 추가
                 return GestureDetector(
                   onTap: () {
-                    // 탭하면 BedMonitorScreen으로 이동하면서 현재 Patient 객체 전달
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -212,15 +233,13 @@ class _StaffScreenState extends State<StaffScreen> {
                     );
                   },
                   child: Card(
-                    // 카드 UI 시작
                     margin: const EdgeInsets.symmetric(vertical: 8),
-                    elevation: 3, // 그림자
+                    elevation: 3,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12), // 모서리 둥글게
-                        // 이벤트 상태에 따라 테두리 색상 변경
+                        borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
                             color: hasEvent
-                                ? (event!.type == 'fall'
+                                ? (event!.fallEvent
                                     ? Colors.red.shade400
                                     : Colors.blue.shade400)
                                 : Colors.grey.shade300,
@@ -230,7 +249,6 @@ class _StaffScreenState extends State<StaffScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 환자 정보 행
                           Row(
                             children: [
                               Icon(Icons.person_outline,
@@ -244,56 +262,52 @@ class _StaffScreenState extends State<StaffScreen> {
                                       fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              // 방/침대 정보
                               Text('${patient.roomId}호 / ${patient.bedId}침대',
                                   style:
                                       TextStyle(color: Colors.grey.shade700)),
                             ],
                           ),
-                          const Divider(height: 24), // 구분선
-                          // 이벤트 정보 표시 (있을 경우)
+                          const Divider(height: 24),
+                          // 8. 이벤트 정보 표시 (UltrasonicU4Response 사용)
                           if (hasEvent)
-                            _buildEventTile(
-                                event!) // 이벤트 타일 위젯 호출 (Null 아님을 보장)
+                            _buildEventTile(event!) // 이벤트 타일 위젯 호출
                           else
                             const Text('최근 이벤트 없음',
-                                style:
-                                    TextStyle(color: Colors.grey)), // 이벤트 없을 때
+                                style: TextStyle(color: Colors.grey)),
                         ],
                       ),
                     ),
-                  ), // 카드 UI 끝
-                ); // GestureDetector 끝
+                  ),
+                );
               },
             );
-            // --- 수정 끝 ---
           },
         ),
       ),
     );
   }
 
-  // 이벤트 정보를 표시하는 위젯 (이전과 동일)
-  Widget _buildEventTile(SensorData event) {
-    final isFallEvent = event.type == 'fall';
+  // 9. 이벤트 타일 위젯 (UltrasonicU4Response 사용)
+  Widget _buildEventTile(model.UltrasonicU4Response event) {
+    final bool isFallEvent = event.fallEvent;
     final icon =
         isFallEvent ? Icons.warning_amber_rounded : Icons.notifications_active;
     final color = isFallEvent ? Colors.red.shade700 : Colors.blue.shade700;
+    final String value = isFallEvent ? "낙상 감지" : "환자 호출";
+
     return Row(
       children: [
         Icon(icon, color: color),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            event.value,
+            value,
             style: TextStyle(
                 fontWeight: FontWeight.w600, color: color, fontSize: 16),
           ),
         ),
-        // 이벤트 발생 시간 (현지 시간으로)
         Text(DateFormat('MM/dd HH:mm').format(event.timestamp.toLocal())),
       ],
     );
   }
-} // _StaffScreenState 클래스 끝
-
+}

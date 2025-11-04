@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
-import '../models/user_model.dart';
+import 'package:iot_fall_prevention/services/api_service.dart';
+import 'package:iot_fall_prevention/models/user_model.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   final String adminId;
@@ -22,18 +22,27 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
   void _reloadUsers() {
     setState(() {
-      _usersFuture = ApiService.getAllUsers(widget.adminId);
+      _usersFuture = ApiService.getAllUsers();
     });
   }
 
   void _changeRole(User user, String newRole) async {
-    bool success = await ApiService.updateUserRole(
-        user.nursinghomeId, newRole, widget.adminId);
+    bool success = false;
+    try {
+      success = await ApiService.updateUserRole(
+        user.userId,
+        newRole,
+      );
+    } catch (e) {
+      print("역할 변경 실패: $e");
+    }
+
     if (!mounted) return;
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${user.nursinghomeName}님의 역할이 변경되었습니다.'),
+        // 5. [모델 수정] user.nursinghomeName -> user.name
+        content: Text('${user.name}님의 역할이 변경되었습니다.'),
         backgroundColor: Colors.green,
       ));
       _reloadUsers();
@@ -80,8 +89,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           ? Icons.admin_panel_settings
                           : Icons.person),
                     ),
-                    title:
-                        Text('${user.nursinghomeName} (${user.nursinghomeId})'),
+                    title: Text('${user.name} (${user.userId})'),
                     subtitle: Text(user.email),
                     trailing: DropdownButton<String>(
                       value: user.role,
@@ -90,8 +98,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             value: value, child: Text(value.toUpperCase()));
                       }).toList(),
                       onChanged: (String? newRole) {
-                        // 자기 자신의 역할은 변경할 수 없도록 방지
-                        if (user.nursinghomeId == widget.adminId) {
+                        if (user.userId == widget.adminId) {
                           ScaffoldMessenger.of(context)
                               .showSnackBar(const SnackBar(
                             content: Text('자기 자신의 역할은 변경할 수 없습니다.'),

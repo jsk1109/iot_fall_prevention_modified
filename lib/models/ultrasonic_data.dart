@@ -1,30 +1,38 @@
-class UltrasonicData {
-  final int id;
-  final String sensorId;
-  final int distance; // 서버 JSON의 'ultrasonic' 필드를 'distance'로 명명
+class UltrasonicU4Response {
+  final int dataId;
   final DateTime timestamp;
-  final String bedId; // 서버 JSON의 'bed_id' 필드
+  final String roomId;
+  final String bedId;
+  final bool callButton;
+  final bool fallEvent;
+  // u1, u2, u3, u4 값을 리스트로 묶어 받습니다.
+  final List<int?> ultrasonicData;
 
-  UltrasonicData({
-    required this.id,
-    required this.sensorId,
-    required this.distance,
+  UltrasonicU4Response({
+    required this.dataId,
     required this.timestamp,
+    required this.roomId,
     required this.bedId,
+    required this.callButton,
+    required this.fallEvent,
+    required this.ultrasonicData,
   });
 
-  // 서버로부터 받은 JSON 데이터를 UltrasonicData 객체로 변환하는 팩토리 생성자
-  factory UltrasonicData.fromJson(Map<String, dynamic> json) {
-    // 각 필드의 값이 null일 경우를 대비하여 기본값 설정 (앱 비정상 종료 방지)
-    return UltrasonicData(
-      id: json['id'] as int? ?? 0, // JSON의 'id' 필드 (정수형)
-      sensorId: json['sensor_id'] as String? ??
-          'unknown', // JSON의 'sensor_id' 필드 (문자열)
-      distance: json['ultrasonic'] as int? ?? 0, // JSON의 'ultrasonic' 필드 (정수형)
-      // timestamp 파싱 오류 방지: null이거나 잘못된 형식이면 현재 시간 사용
+  // 서버로부터 받은 JSON 데이터를 UltrasonicU4Response 객체로 변환
+  factory UltrasonicU4Response.fromJson(Map<String, dynamic> json) {
+    // ultrasonic_data 필드를 List<int?>로 파싱
+    final List<dynamic> dataListDynamic = json['ultrasonic_data'] ?? [];
+    final List<int?> dataList = dataListDynamic.map((e) => e as int?).toList();
+
+    return UltrasonicU4Response(
+      dataId: json['data_id'] as int? ?? 0,
       timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
           DateTime.now(),
-      bedId: json['bed_id'] as String? ?? 'unknown', // JSON의 'bed_id' 필드 (문자열)
+      roomId: json['room_id'] as String? ?? 'unknown',
+      bedId: json['bed_id'] as String? ?? 'unknown',
+      callButton: json['call_button'] as bool? ?? false,
+      fallEvent: json['fall_event'] as bool? ?? false,
+      ultrasonicData: dataList, // 4채널 통합 리스트 할당
     );
   }
 }

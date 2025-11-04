@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart'; // ApiService를 직접 사용합니다.
+import 'package:provider/provider.dart';
+// 1. ApiService 대신 AuthProvider를 import합니다.
+import 'package:iot_fall_prevention/providers/auth_provider.dart' as auth_p;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,9 +11,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // --- 기존 UI 상태 변수 + 신규 로직 변수 ---
   final _formKey = GlobalKey<FormState>();
-  final _idController = TextEditingController(); // email에서 id로 변경
+  final _idController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isPasswordVisible = false;
@@ -23,9 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // --- 새로운 로그인 로직 ---
+  // --- 2. AuthProvider를 사용하는 로그인 로직 ---
   Future<void> _login() async {
-    // 1. 유효성 검사 (기존 코드 유지)
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -33,28 +33,34 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 2. ApiService를 직접 호출하여 로그인 시도
-      final data =
-          await ApiService.login(_idController.text, _passwordController.text);
+      // 3. context.read를 사용하여 AuthProvider의 login 메서드 호출
+      await context.read<auth_p.AuthProvider>().login(
+            _idController.text,
+            _passwordController.text,
+          );
+
       if (!mounted) return;
 
-      final role = data['role'];
-      final userId = data['user_id'];
+      // 4. 로그인 성공 후 Provider에서 역할(role)을 가져옵니다.
+      final authProvider = context.read<auth_p.AuthProvider>();
+      final role = authProvider.userRole;
+      final userId = authProvider.currentUserId;
 
-      // 3. 역할(role)에 따라 다른 화면으로 이동
-      if (role == 'admin') {
+      if (role == auth_p.UserRole.admin) {
         Navigator.pushReplacementNamed(context, '/admin', arguments: userId);
-      } else if (role == 'staff') {
+      } else if (role == auth_p.UserRole.staff) {
         Navigator.pushReplacementNamed(context, '/staff', arguments: userId);
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('권한이 없는 사용자입니다.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('알 수 없는 사용자 역할입니다.')),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('로그인 실패: ${e.toString()}'),
+          content:
+              Text(e.toString().replaceAll('Exception: ', '')), // 에러 메시지 정리
           backgroundColor: Colors.red,
         ),
       );
@@ -67,7 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // --- 기존 UI 부분 (일부만 수정) ---
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
 
@@ -86,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(
                     Icons.health_and_safety,
                     size: isSmallScreen ? 80 : 120,
-                    color: Colors.blue.shade700,
+                    color: Colors.indigo.shade700, // 테마 색상과 일치
                   ),
                   SizedBox(height: isSmallScreen ? 24 : 28),
                   Text(
@@ -95,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: isSmallScreen ? 24 : 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade900,
+                      color: Colors.indigo.shade900, // 테마 색상과 일치
                     ),
                   ),
                   SizedBox(height: isSmallScreen ? 8 : 16),
@@ -104,19 +109,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 16 : 20,
-                      color: Colors.blue.shade700,
+                      color: Colors.indigo.shade700, // 테마 색상과 일치
                     ),
                   ),
                   SizedBox(height: isSmallScreen ? 48 : 64),
-                  // [변경점] '이메일' -> '아이디'
                   TextFormField(
                     controller: _idController,
                     decoration: InputDecoration(
-                      labelText: '아이디', // <-- UI 텍스트 변경
-                      prefixIcon:
-                          Icon(Icons.person, color: Colors.blue.shade700),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      labelText: '아이디',
+                      prefixIcon: Icon(Icons.person,
+                          color: Colors.indigo.shade700), // 테마 색상
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -124,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
-                    cursorColor: Colors.blue,
+                    cursorColor: Colors.indigo, // 테마 색상
                   ),
                   SizedBox(height: isSmallScreen ? 16 : 24),
                   TextFormField(
@@ -132,9 +134,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
                       labelText: '비밀번호',
-                      prefixIcon: Icon(Icons.lock, color: Colors.blue.shade700),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      prefixIcon:
+                          Icon(Icons.lock, color: Colors.indigo.shade700),
                       suffixIcon: IconButton(
                         icon: Icon(_isPasswordVisible
                             ? Icons.visibility_off
@@ -153,19 +154,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                     onFieldSubmitted: (_) => _login(),
-                    cursorColor: Colors.blue,
+                    cursorColor: Colors.indigo,
                   ),
                   SizedBox(height: isSmallScreen ? 32 : 48),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: EdgeInsets.symmetric(
-                          vertical: isSmallScreen ? 14 : 18),
-                    ),
                     child: _isLoading
                         ? const SizedBox(
                             width: 24,
@@ -180,8 +173,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(height: isSmallScreen ? 16 : 24),
                   TextButton(
                     onPressed: () => Navigator.pushNamed(context, '/signup'),
-                    style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue.shade700),
                     child: Text('계정이 없으신가요? 회원가입',
                         style: TextStyle(fontSize: isSmallScreen ? 14 : 16)),
                   ),

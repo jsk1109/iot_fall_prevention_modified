@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/auth_provider.dart';
-import './admin_user_management_screen.dart'; // 사용자 관리 화면 import
-import './staff_screen.dart'; // 직원(모니터링) 화면 import
+import 'package:iot_fall_prevention/providers/auth_provider.dart' as auth_p;
+import 'package:iot_fall_prevention/screens/admin_user_management_screen.dart';
+import 'package:iot_fall_prevention/screens/staff_screen.dart';
 
 class AdminScreen extends StatelessWidget {
-  final String adminId; // 관리자 ID를 받음
+  final String adminId;
   const AdminScreen({super.key, required this.adminId});
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>(); // 사용자 이름 표시용
+    // 3. 접두사를 사용하여 Provider 참조
+    final authProvider = context.watch<auth_p.AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -21,7 +22,8 @@ class AdminScreen extends StatelessWidget {
             icon: const Icon(Icons.logout),
             tooltip: '로그아웃',
             onPressed: () {
-              context.read<AuthProvider>().logout();
+              // 4. 접두사를 사용하여 Provider 참조
+              context.read<auth_p.AuthProvider>().logout();
               Navigator.pushNamedAndRemoveUntil(
                   context, '/login', (route) => false);
             },
@@ -31,10 +33,9 @@ class AdminScreen extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // 버튼들을 중앙에 배치
-          crossAxisAlignment: CrossAxisAlignment.stretch, // 버튼 너비 최대로
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. 사용자 역할 관리 버튼
             ElevatedButton.icon(
               icon: const Icon(Icons.manage_accounts),
               label: const Text('사용자 역할 관리'),
@@ -46,15 +47,14 @@ class AdminScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
+                    // 5. [핵심 수정] 명시적 생성자 호출
                     builder: (context) =>
                         AdminUserManagementScreen(adminId: adminId),
                   ),
                 );
               },
             ),
-            const SizedBox(height: 20), // 버튼 사이 간격
-
-            // 2. 실시간 모니터링 화면 이동 버튼
+            const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: const Icon(Icons.monitor_heart),
               label: const Text('실시간 모니터링'),
@@ -63,7 +63,6 @@ class AdminScreen extends StatelessWidget {
                 textStyle: const TextStyle(fontSize: 18),
               ),
               onPressed: () {
-                // 관리자 ID를 staffId로 넘겨서 StaffScreen으로 이동
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -72,7 +71,6 @@ class AdminScreen extends StatelessWidget {
                 );
               },
             ),
-            // --- 향후 다른 관리 기능 버튼을 여기에 추가 ---
           ],
         ),
       ),
