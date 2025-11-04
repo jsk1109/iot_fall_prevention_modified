@@ -36,13 +36,13 @@
 
 - Infrastructure: Gabia Cloud, Nginx, Uvicorn
 
-- Sensors: TF Luna LiDAR, Ultrasonic Sensor (HC-SR04)
+- Sensors: Ultrasonic Sensor (HC-SR04)
 
 ## 5. 프로젝트 현황 (2학기 진행)
 
-[완료] 클라우드 서버 및 데이터베이스 구축 (FastAPI, MySQL)
+[진행중] 클라우드 서버 및 데이터베이스 구축 (FastAPI, MySQL)
 
-[완료] Flutter 모바일 앱 UI 및 핵심 기능 구현 (실시간 모니터링, 알림)
+[진행중] Flutter 모바일 앱 UI 및 핵심 기능 구현 (실시간 모니터링, 알림)
 
 [진행중] 라즈베리파이 기반 낙상 판단 기능 개발 및 테스트
 
