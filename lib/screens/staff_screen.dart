@@ -18,16 +18,22 @@ class _StaffScreenState extends State<StaffScreen> {
   List<SensorDataModel> _rawLogs = [];
   List<Map<String, dynamic>> _bedStatusList = [];
 
+  // 확인 버튼을 누른 로그 ID 저장소
   final Set<int> _confirmedLogIds = {};
 
   Timer? _timer;
   bool _isLoading = true;
+
+  // [추가] 마지막으로 데이터가 갱신된 시간 표시용 변수
+  String _lastUpdateTime = "연결 중...";
+
   final String _currentNursingHomeId = "NH-001";
 
   @override
   void initState() {
     super.initState();
     _initData();
+    // 3초마다 로그만 갱신
     _timer =
         Timer.periodic(const Duration(seconds: 3), (timer) => _fetchLogsOnly());
   }
@@ -38,6 +44,7 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
+  // 초기 데이터 로드 (환자 목록 + 로그)
   Future<void> _initData() async {
     if (!mounted) return;
     try {
@@ -49,6 +56,7 @@ class _StaffScreenState extends State<StaffScreen> {
           _allPatients = patients;
           _rawLogs = logs;
           _processBedData();
+          _updateTime(); // 시간 갱신
           _isLoading = false;
         });
       }
@@ -58,6 +66,7 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
+  // 주기적 갱신 (로그만 가져와서 상태 업데이트)
   Future<void> _fetchLogsOnly() async {
     if (!mounted) return;
     try {
@@ -66,6 +75,7 @@ class _StaffScreenState extends State<StaffScreen> {
         setState(() {
           _rawLogs = logs;
           _processBedData();
+          _updateTime(); // 시간 갱신 (데이터가 안 변해도 시간은 흐름)
         });
       }
     } catch (e) {
@@ -73,9 +83,17 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
+  // 현재 시간을 "HH:mm:ss" 형식으로 저장
+  void _updateTime() {
+    final now = DateTime.now();
+    _lastUpdateTime =
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+  }
+
   void _processBedData() {
     final Map<String, Map<String, dynamic>> bedMap = {};
 
+    // 1. 모든 환자 기본 데이터 세팅
     for (var patient in _allPatients) {
       final key = '${patient.roomId}-${patient.bedId}';
       bedMap[key] = {
@@ -88,6 +106,7 @@ class _StaffScreenState extends State<StaffScreen> {
       };
     }
 
+    // 2. 로그 데이터 매핑
     for (var log in _rawLogs) {
       final key = '${log.roomId}-${log.bedId}';
       if (bedMap.containsKey(key)) {
@@ -117,11 +136,9 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 
-  // [수정됨] bedId 대신 Patient 객체를 찾아 전달하도록 수정
   void _navigateToMonitor(String bedId) {
     try {
       final patient = _allPatients.firstWhere((p) => p.bedId == bedId);
-
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -137,7 +154,17 @@ class _StaffScreenState extends State<StaffScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('전체 침대 현황'),
+        // [UI 변경] 제목과 업데이트 시간을 함께 표시
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('전체 침대 현황'),
+            Text(
+              '마지막 갱신: $_lastUpdateTime',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _initData)
         ],
@@ -275,7 +302,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                     ),
                                     icon: const Icon(
                                         Icons.notifications_off_outlined),
-                                    label: const Text("현재 낙상 알림 해제"),
+                                    label: const Text("현재 위험 알림 해제"),
                                   ),
                                 )
                               ]
@@ -297,7 +324,7 @@ class _StaffScreenState extends State<StaffScreen> {
 
     if (log != null) {
       if (isDanger) {
-        text = "낙상 감지";
+        text = "위험 감지";
         color = Colors.red;
       } else if (isCurrentFall) {
         text = "조치 완료";
