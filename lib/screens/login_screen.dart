@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// 1. ApiService 대신 AuthProvider를 import합니다.
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:iot_fall_prevention/providers/auth_provider.dart' as auth_p;
+import 'package:iot_fall_prevention/services/api_service.dart'; // ApiService 직접 사용을 위해 추가
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,16 +25,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // --- 2. AuthProvider를 사용하는 로그인 로직 ---
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 3. context.read를 사용하여 AuthProvider의 login 메서드 호출
       await context.read<auth_p.AuthProvider>().login(
             _idController.text,
             _passwordController.text,
@@ -41,7 +38,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // 4. 로그인 성공 후 Provider에서 역할(role)을 가져옵니다.
+      // [추가됨] 로그인 성공 후 FCM 토큰 처리
+      try {
+        final messaging = FirebaseMessaging.instance;
+        await messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+        final token = await messaging.getToken();
+        print("FCM Token: $token");
+
+        if (token != null) {
+          final userId = context.read<auth_p.AuthProvider>().currentUserId;
+          if (userId != null) {
+            await ApiService.updateFcmToken(userId, token);
+          }
+        }
+      } catch (e) {
+        print("FCM Error: $e");
+      }
+
       final authProvider = context.read<auth_p.AuthProvider>();
       final role = authProvider.userRole;
       final userId = authProvider.currentUserId;
@@ -59,8 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(e.toString().replaceAll('Exception: ', '')), // 에러 메시지 정리
+          content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.red,
         ),
       );
@@ -91,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(
                     Icons.health_and_safety,
                     size: isSmallScreen ? 80 : 120,
-                    color: Colors.indigo.shade700, // 테마 색상과 일치
+                    color: Colors.indigo.shade700,
                   ),
                   SizedBox(height: isSmallScreen ? 24 : 28),
                   Text(
@@ -100,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: isSmallScreen ? 24 : 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.indigo.shade900, // 테마 색상과 일치
+                      color: Colors.indigo.shade900,
                     ),
                   ),
                   SizedBox(height: isSmallScreen ? 8 : 16),
@@ -109,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 16 : 20,
-                      color: Colors.indigo.shade700, // 테마 색상과 일치
+                      color: Colors.indigo.shade700,
                     ),
                   ),
                   SizedBox(height: isSmallScreen ? 48 : 64),
@@ -117,8 +134,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _idController,
                     decoration: InputDecoration(
                       labelText: '아이디',
-                      prefixIcon: Icon(Icons.person,
-                          color: Colors.indigo.shade700), // 테마 색상
+                      prefixIcon:
+                          Icon(Icons.person, color: Colors.indigo.shade700),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -126,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
-                    cursorColor: Colors.indigo, // 테마 색상
+                    cursorColor: Colors.indigo,
                   ),
                   SizedBox(height: isSmallScreen ? 16 : 24),
                   TextFormField(

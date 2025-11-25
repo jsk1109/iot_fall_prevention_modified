@@ -1,38 +1,46 @@
 class UltrasonicU4Response {
   final int dataId;
-  final DateTime timestamp;
+  final String timestamp; // DateTime 대신 String으로 받아 처리가 쉽도록 변경
+  final String nursinghomeId;
   final String roomId;
   final String bedId;
-  final bool callButton;
-  final bool fallEvent;
-  // u1, u2, u3, u4 값을 리스트로 묶어 받습니다.
-  final List<int?> ultrasonicData;
+  final int callButton;
+  final int fallEvent;
+  // [누락되었던 센서 데이터 필드 추가]
+  final int u1;
+  final int u2;
+  final int u3;
+  final int u4;
 
   UltrasonicU4Response({
     required this.dataId,
     required this.timestamp,
+    required this.nursinghomeId,
     required this.roomId,
     required this.bedId,
     required this.callButton,
     required this.fallEvent,
-    required this.ultrasonicData,
+    required this.u1,
+    required this.u2,
+    required this.u3,
+    required this.u4,
   });
 
-  // 서버로부터 받은 JSON 데이터를 UltrasonicU4Response 객체로 변환
   factory UltrasonicU4Response.fromJson(Map<String, dynamic> json) {
-    // ultrasonic_data 필드를 List<int?>로 파싱
-    final List<dynamic> dataListDynamic = json['ultrasonic_data'] ?? [];
-    final List<int?> dataList = dataListDynamic.map((e) => e as int?).toList();
-
     return UltrasonicU4Response(
-      dataId: json['data_id'] as int? ?? 0,
-      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
-          DateTime.now(),
-      roomId: json['room_id'] as String? ?? 'unknown',
-      bedId: json['bed_id'] as String? ?? 'unknown',
-      callButton: json['call_button'] as bool? ?? false,
-      fallEvent: json['fall_event'] as bool? ?? false,
-      ultrasonicData: dataList, // 4채널 통합 리스트 할당
+      dataId: json['data_id'] ?? 0,
+      // null일 경우 빈 문자열 처리
+      timestamp: json['timestamp']?.toString() ?? '',
+      nursinghomeId: json['nursinghome_id'] ?? '',
+      roomId: json['room_id'] ?? '',
+      bedId: json['bed_id'] ?? '',
+      callButton: json['call_button'] ?? 0,
+      fallEvent: json['fall_event'] ?? 0,
+      // 센서 값 파싱 (null이면 0으로 처리)
+      u1: json['u1'] ?? 0,
+      u2: json['u2'] ?? 0,
+      u3: json['u3'] ?? 0,
+      u4: json['u4'] ?? 0,
     );
   }
 }

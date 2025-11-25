@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:firebase_core/firebase_core.dart'; // Firebase를 껐다면 주석 처리
-// import 'firebase_options.dart'; // Firebase를 껐다면 주석 처리
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+// ⚠️ 이 파일이 있어야 DefaultFirebaseOptions를 사용할 수 있습니다.
+import 'firebase_options.dart';
+
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/staff_screen.dart';
 
-void main() {
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // 🚨 수정된 부분: 백그라운드 핸들러 초기화 시에도 옵션 추가
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  print("백그라운드 메시지 수신: ${message.messageId}");
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 🚨 수정된 부분: main 초기화 시 옵션 추가
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   runApp(
     MultiProvider(
       providers: [
@@ -27,7 +49,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'IoT 모니터링',
       debugShowCheckedModeBanner: false,
-
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
@@ -70,8 +91,6 @@ class MyApp extends StatelessWidget {
           prefixIconColor: Colors.indigo.shade700,
         ),
       ),
-
-      // --- 6. 화면 이동 (라우팅) 설정 ---
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -84,7 +103,6 @@ class MyApp extends StatelessWidget {
             builder: (_) => AdminScreen(adminId: adminId),
           );
         }
-
         if (settings.name == '/staff') {
           final staffId = settings.arguments as String;
           return MaterialPageRoute(

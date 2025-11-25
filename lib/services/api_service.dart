@@ -1,19 +1,17 @@
-// lib/services/api_service.dart
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:iot_fall_prevention/models/patient_model.dart';
 import 'package:iot_fall_prevention/models/user_model.dart';
 import 'package:iot_fall_prevention/models/ultrasonic_data.dart' as model;
+import 'package:iot_fall_prevention/models/sensor_data_model.dart';
 
 class ApiService {
   static const String baseUrl = 'http://121.78.128.175';
 
-  // --- 1. 인증 API (최종 경로 반영) ---
   static Future<Map<String, dynamic>> login(
       String userId, String password) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'), // '/auth' 접두사 추가
+      Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json; charset=UTF-8'},
       body: jsonEncode({'user_id': userId, 'password': password}),
     );
@@ -26,18 +24,17 @@ class ApiService {
           : '{}';
       final errorBody = json.decode(responseBody);
       throw Exception(
-          '로그인 실패: ${errorBody['detail'] ?? response.reasonPhrase ?? 'Unknown error'}');
+          '로그인 실패: ${errorBody['detail'] ?? response.reasonPhrase}');
     }
   }
 
-  // --- 2. Staff 화면 API (최종 경로 반영) ---
   static Future<List<Patient>> getAllPatients() async {
     final response = await http.get(Uri.parse('$baseUrl/patients'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
       return data.map((item) => Patient.fromJson(item)).toList();
     } else {
-      throw Exception('환자 목록을 불러오는 데 실패했습니다.');
+      throw Exception('환자 목록 로드 실패');
     }
   }
 
@@ -53,11 +50,8 @@ class ApiService {
 
     try {
       final response = await http.get(uri);
-
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-
-        // [수정] List<model.UltrasonicU4Response>로 직접 파싱
         return data
             .map((item) => model.UltrasonicU4Response.fromJson(
                 item as Map<String, dynamic>))
@@ -65,18 +59,14 @@ class ApiService {
       } else if (response.statusCode == 404 || response.body.isEmpty) {
         return [];
       } else {
-        throw Exception(
-            'Failed to load ultrasonic history: ${response.statusCode}');
+        throw Exception('이력 로드 실패');
       }
     } catch (e) {
-      throw Exception('Failed to load ultrasonic history: $e');
+      throw Exception('이력 로드 실패: $e');
     }
   }
 
-  // --- 4. Admin API (최종 경로 반영 및 인자 수정) ---
-  // [수정] adminId 인자 제거
   static Future<List<User>> getAllUsers() async {
-    // [수정] API 경로를 /users로 복원
     final response = await http.get(Uri.parse('$baseUrl/users'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -84,42 +74,48 @@ class ApiService {
           .map((item) => User.fromJson(item as Map<String, dynamic>))
           .toList();
     } else {
-      throw Exception('사용자 목록을 불러오는 데 실패했습니다.');
+      throw Exception('사용자 목록 로드 실패');
     }
   }
 
-  // [수정] adminId 인자 제거
   static Future<bool> updateUserRole(
       String targetUserId, String newRole) async {
     final response = await http.put(
       Uri.parse('$baseUrl/users/$targetUserId/role'),
       headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      // [수정] admin_id를 body에서 제거
       body: json.encode({'new_role': newRole}),
     );
     if (response.statusCode == 200) {
       return true;
     } else {
-      throw Exception('사용자 역할 변경에 실패했습니다: ${response.statusCode}');
+      throw Exception('역할 변경 실패');
     }
   }
 
-  // 낙상 시뮬레이션 (유지)
-  static Future<void> simulateFallEvent(String roomId, String bedId) async {
-    // (이 API는 현재 서버에 정의되지 않았을 수 있으나, 코드는 유지합니다)
-    final response = await http.post(
-      Uri.parse('$baseUrl/events/simulate/fall'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, String>{
-        'nursinghome_id': 'NH-001',
-        'room_id': roomId,
-        'bed_id': bedId,
-      }),
-    );
-    if (response.statusCode != 201) {
-      throw Exception('Failed to simulate fall event.');
+  static Future<void> updateFcmToken(String userId, String token) async {
+    final url = Uri.parse('$baseUrl/users/$userId/fcm-token');
+    try {
+      await http.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'token': token}),
+      );
+    } catch (e) {
+      print("FCM 토큰 전송 에러: $e");
+    }
+  }
+
+  static Future<List<SensorDataModel>> getStaffLogs(
+      String nursingHomeId) async {
+    final uri = Uri.parse(
+        '$baseUrl/events/staff/logs?nursinghome_id=$nursingHomeId&limit=50');
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      return data.map((item) => SensorDataModel.fromJson(item)).toList();
+    } else {
+      throw Exception('로그 로드 실패');
     }
   }
 }

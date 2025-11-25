@@ -1,57 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:iot_fall_prevention/services/heatmap_generator.dart';
 
 class HeatmapPainter extends CustomPainter {
-  final List<List<double>> gridData;
-  late final int gridSize;
+  final List<double> occupancyData;
 
-  HeatmapPainter({required this.gridData}) {
-    // 그리드 크기를 입력된 데이터로부터 동적으로 설정
-    gridSize = gridData.isNotEmpty ? gridData.length : 1;
-  }
+  HeatmapPainter({required this.occupancyData});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (gridData.isEmpty) return;
+    if (occupancyData.length != 4) return;
 
-    final double cellWidth = size.width / gridSize;
-    final double cellHeight = size.height / gridSize;
+    double w = size.width / 2;
+    double h = size.height / 2;
 
-    Color getColor(double occupancy) {
-      if (occupancy >= 0.8) {
-        return Colors.red.shade700; // 80% 이상 (매우 높음)
-      } else if (occupancy >= 0.6) {
-        return Colors.yellow.shade600; // 60% - 80%
-      } else if (occupancy >= 0.4) {
-        return Colors.green.shade500; // 40% - 60% (중간)
-      } else if (occupancy >= 0.2) {
-        return Colors.cyan.shade400; // 20% - 40%
-      } else {
-        return Colors.blue.shade300; // 20% 미만 (낮음)
-      }
-    }
+    List<Offset> offsets = [
+      const Offset(0, 0),
+      Offset(w, 0),
+      Offset(0, h),
+      Offset(w, h),
+    ];
 
-    for (int y = 0; y < gridSize; y++) {
-      for (int x = 0; x < gridSize; x++) {
-        double occupancy = gridData[y][x];
+    for (int i = 0; i < 4; i++) {
+      double value = occupancyData[i];
+      Color color = Color.lerp(Colors.green.shade100, Colors.red, value) ??
+          Colors.transparent;
 
-        final color = getColor(occupancy);
-        final paint = Paint()..color = color;
+      Paint paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
 
-        final rect = Rect.fromLTWH(
-          x * cellWidth,
-          (gridSize - 1 - y) * cellHeight, // Y축 반전 (0,0을 좌측 하단으로)
-          cellWidth,
-          cellHeight,
-        );
+      canvas.drawRect(
+        Rect.fromLTWH(offsets[i].dx, offsets[i].dy, w, h),
+        paint,
+      );
 
-        canvas.drawRect(rect, paint);
-      }
+      Paint borderPaint = Paint()
+        ..color = Colors.grey.shade300
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+
+      canvas.drawRect(
+        Rect.fromLTWH(offsets[i].dx, offsets[i].dy, w, h),
+        borderPaint,
+      );
     }
   }
 
   @override
   bool shouldRepaint(covariant HeatmapPainter oldDelegate) {
-    return oldDelegate.gridData != gridData;
+    return oldDelegate.occupancyData != occupancyData;
   }
 }

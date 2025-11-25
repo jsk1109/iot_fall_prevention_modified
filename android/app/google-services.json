@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "147187256692",
+    "project_id": "iot-fall-fe9fe",
+    "storage_bucket": "iot-fall-fe9fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147187256692:android:02a22fdd239c3fe10b3021",
+        "android_client_info": {
+          "package_name": "com.example.iot_fall"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBj7Z2RgLJJYV8h7OwbN3QmCzrvkuynUHw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
