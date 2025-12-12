@@ -6,7 +6,7 @@ import 'package:iot_fall_prevention/models/ultrasonic_data.dart' as model;
 import 'package:iot_fall_prevention/models/sensor_data_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://121.78.128.175';
+  static const String baseUrl = 'http://121.78.128.175:8000';
 
   static Future<Map<String, dynamic>> login(
       String userId, String password) async {

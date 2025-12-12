@@ -18,22 +18,23 @@ class _StaffScreenState extends State<StaffScreen> {
   List<SensorDataModel> _rawLogs = [];
   List<Map<String, dynamic>> _bedStatusList = [];
 
-  // 확인 버튼을 누른 로그 ID 저장소
-  final Set<int> _confirmedLogIds = {};
+  // 알림이 활성화된 침대 목록 (낙상 1, 2 포함)
+  final Set<String> _activeFallAlerts = {};
+  final Set<String> _activeCallAlerts = {};
+
+  // 확인 처리된 로그 ID 목록
+  final Set<int> _dismissedLogIds = {};
 
   Timer? _timer;
   bool _isLoading = true;
 
-  // [추가] 마지막으로 데이터가 갱신된 시간 표시용 변수
   String _lastUpdateTime = "연결 중...";
-
   final String _currentNursingHomeId = "NH-001";
 
   @override
   void initState() {
     super.initState();
     _initData();
-    // 3초마다 로그만 갱신
     _timer =
         Timer.periodic(const Duration(seconds: 3), (timer) => _fetchLogsOnly());
   }
@@ -44,7 +45,6 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
-  // 초기 데이터 로드 (환자 목록 + 로그)
   Future<void> _initData() async {
     if (!mounted) return;
     try {
@@ -56,7 +56,7 @@ class _StaffScreenState extends State<StaffScreen> {
           _allPatients = patients;
           _rawLogs = logs;
           _processBedData();
-          _updateTime(); // 시간 갱신
+          _updateTime();
           _isLoading = false;
         });
       }
@@ -66,7 +66,6 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
-  // 주기적 갱신 (로그만 가져와서 상태 업데이트)
   Future<void> _fetchLogsOnly() async {
     if (!mounted) return;
     try {
@@ -75,7 +74,7 @@ class _StaffScreenState extends State<StaffScreen> {
         setState(() {
           _rawLogs = logs;
           _processBedData();
-          _updateTime(); // 시간 갱신 (데이터가 안 변해도 시간은 흐름)
+          _updateTime();
         });
       }
     } catch (e) {
@@ -83,7 +82,6 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
-  // 현재 시간을 "HH:mm:ss" 형식으로 저장
   void _updateTime() {
     final now = DateTime.now();
     _lastUpdateTime =
@@ -93,46 +91,74 @@ class _StaffScreenState extends State<StaffScreen> {
   void _processBedData() {
     final Map<String, Map<String, dynamic>> bedMap = {};
 
-    // 1. 모든 환자 기본 데이터 세팅
+    // 1. 기본 침대 정보 세팅
     for (var patient in _allPatients) {
       final key = '${patient.roomId}-${patient.bedId}';
       bedMap[key] = {
+        'key': key,
         'patientName': patient.patientName,
         'roomId': patient.roomId,
         'bedId': patient.bedId,
         'currentLog': null,
         'lastFallTime': null,
-        'lastFallLogId': null,
       };
     }
 
     // 2. 로그 데이터 매핑
     for (var log in _rawLogs) {
       final key = '${log.roomId}-${log.bedId}';
+
       if (bedMap.containsKey(key)) {
+        // 최신 로그 저장
         if (bedMap[key]!['currentLog'] == null) {
           bedMap[key]!['currentLog'] = log;
         }
+
+        // 마지막 낙상 시간 (Event 2만 기록)
         if (log.fallEvent == 2 && bedMap[key]!['lastFallTime'] == null) {
           bedMap[key]!['lastFallTime'] = log.timestamp;
-          bedMap[key]!['lastFallLogId'] = log.id;
         }
       }
     }
+
+    // 3. 알림 트리거 로직 (최신 로그 기준)
+    bedMap.forEach((key, data) {
+      final SensorDataModel? currentLog = data['currentLog'];
+
+      if (currentLog != null) {
+        // 1(주의) 또는 2(낙상) 상태이고 && 아직 확인 안 함 -> 알림 목록 추가
+        bool isFallOrWarning =
+            (currentLog.fallEvent == 1 || currentLog.fallEvent == 2);
+
+        if (isFallOrWarning && !_dismissedLogIds.contains(currentLog.id)) {
+          _activeFallAlerts.add(key);
+        }
+
+        // 호출 알림
+        if (currentLog.callButton == 1 &&
+            !_dismissedLogIds.contains(currentLog.id)) {
+          _activeCallAlerts.add(key);
+        }
+      }
+    });
 
     _bedStatusList = bedMap.values.toList();
     _bedStatusList.sort((a, b) => a['roomId'].compareTo(b['roomId']));
   }
 
-  void _onConfirmPressed(int logId) {
+  void _onConfirmPressed(String bedKey, String type, int logId) {
     setState(() {
-      _confirmedLogIds.add(logId);
+      if (type == 'fall') {
+        _activeFallAlerts.remove(bedKey);
+      } else if (type == 'call') {
+        _activeCallAlerts.remove(bedKey);
+      }
+      _dismissedLogIds.add(logId);
     });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('확인 처리되었습니다.'),
-        duration: Duration(seconds: 1),
-      ),
+          content: Text('확인 처리되었습니다.'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -154,15 +180,12 @@ class _StaffScreenState extends State<StaffScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // [UI 변경] 제목과 업데이트 시간을 함께 표시
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('전체 침대 현황'),
-            Text(
-              '마지막 갱신: $_lastUpdateTime',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
+            Text('마지막 갱신: $_lastUpdateTime',
+                style: const TextStyle(fontSize: 12, color: Colors.black54)),
           ],
         ),
         actions: [
@@ -178,31 +201,44 @@ class _StaffScreenState extends State<StaffScreen> {
                   itemCount: _bedStatusList.length,
                   itemBuilder: (context, index) {
                     final bedData = _bedStatusList[index];
+                    final String bedKey = bedData['key'];
                     final SensorDataModel? currentLog = bedData['currentLog'];
-
                     final String? lastFallTime = bedData['lastFallTime'];
-                    final int? lastFallLogId = bedData['lastFallLogId'];
 
-                    bool isCurrentFall = false;
-                    bool isDanger = false;
+                    // 활성 알림 여부
+                    final bool isFallAlert = _activeFallAlerts.contains(bedKey);
+                    final bool isCallAlert = _activeCallAlerts.contains(bedKey);
 
+                    // 현재 이벤트 타입 확인 (1: 주의, 2: 낙상)
+                    int fallType = 0;
                     if (currentLog != null) {
-                      isCurrentFall = currentLog.fallEvent == 2;
-                      isDanger = isCurrentFall &&
-                          !_confirmedLogIds.contains(currentLog.id);
+                      fallType = currentLog.fallEvent;
                     }
 
-                    final bool isLastFallConfirmed = lastFallLogId != null &&
-                        _confirmedLogIds.contains(lastFallLogId);
+                    // 카드 색상 결정
+                    Color cardColor = Colors.white;
+                    if (isFallAlert) {
+                      // 2(낙상)이면 빨간색, 1(주의)이면 주황/노란색
+                      cardColor = fallType == 2
+                          ? Colors.red.shade50
+                          : Colors.orange.shade50;
+                    } else if (isCallAlert) {
+                      cardColor = Colors.blue.shade50; // 호출은 파란색 계열로 변경 (구분 위해)
+                    }
 
                     return Card(
-                      elevation: isDanger ? 4 : 1,
-                      color: isDanger ? Colors.red.shade50 : Colors.white,
+                      elevation: (isFallAlert || isCallAlert) ? 4 : 1,
+                      color: cardColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: isDanger
-                            ? const BorderSide(color: Colors.red, width: 2)
-                            : BorderSide.none,
+                        side: isFallAlert
+                            ? BorderSide(
+                                color:
+                                    fallType == 2 ? Colors.red : Colors.orange,
+                                width: 2)
+                            : (isCallAlert
+                                ? const BorderSide(color: Colors.blue, width: 2)
+                                : BorderSide.none),
                       ),
                       margin: const EdgeInsets.symmetric(vertical: 6),
                       child: InkWell(
@@ -234,75 +270,80 @@ class _StaffScreenState extends State<StaffScreen> {
                                       ),
                                     ],
                                   ),
+                                  // 상태 배지 (파라미터 추가)
                                   _buildStatusBadge(
-                                      currentLog, isDanger, isCurrentFall),
+                                      isFallAlert, isCallAlert, fallType),
                                 ],
                               ),
                               const Divider(),
+
                               _buildInfoRow(
                                 icon: Icons.access_time,
-                                label: "최근 데이터:",
+                                label: "최근 수신:",
                                 value: currentLog?.timestamp
                                         .replaceAll('T', ' ') ??
                                     "데이터 없음",
                               ),
                               const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildInfoRow(
-                                      icon: Icons.history_toggle_off,
-                                      label: "마지막 위험:",
-                                      value:
-                                          lastFallTime?.replaceAll('T', ' ') ??
-                                              "기록 없음",
-                                      textColor: lastFallTime != null
-                                          ? Colors.red[700]
-                                          : Colors.grey,
-                                    ),
-                                  ),
-                                  if (lastFallLogId != null &&
-                                      !isLastFallConfirmed)
-                                    SizedBox(
-                                      height: 30,
-                                      child: ElevatedButton(
-                                        onPressed: () =>
-                                            _onConfirmPressed(lastFallLogId),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.orange.shade100,
-                                          foregroundColor:
-                                              Colors.orange.shade900,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12),
-                                        ),
-                                        child: const Text("확인",
-                                            style: TextStyle(fontSize: 12)),
-                                      ),
-                                    )
-                                  else if (isLastFallConfirmed)
-                                    const Padding(
-                                      padding: EdgeInsets.only(right: 8.0),
-                                      child: Icon(Icons.check_circle,
-                                          color: Colors.green, size: 20),
-                                    )
-                                ],
+                              _buildInfoRow(
+                                icon: Icons.history_toggle_off,
+                                label: "마지막 낙상:",
+                                value: lastFallTime?.replaceAll('T', ' ') ??
+                                    "기록 없음",
+                                textColor: lastFallTime != null
+                                    ? Colors.red[700]
+                                    : Colors.grey,
                               ),
-                              if (isDanger) ...[
+
+                              // [UI 변경] 낙상/주의 알림 버튼 분기 처리
+                              if (isFallAlert && currentLog != null) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: fallType == 2
+                                      // Case 2: 낙상 -> 빨간색 비상 버튼
+                                      ? ElevatedButton.icon(
+                                          onPressed: () => _onConfirmPressed(
+                                              bedKey, 'fall', currentLog.id),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          icon: const Icon(
+                                              Icons.warning_amber_rounded),
+                                          label: const Text("위험 비상 해제 (확인)"),
+                                        )
+                                      // Case 1: 주의 -> 주황색 확인 버튼
+                                      : ElevatedButton.icon(
+                                          onPressed: () => _onConfirmPressed(
+                                              bedKey, 'fall', currentLog.id),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          icon: const Icon(
+                                              Icons.check_circle_outline),
+                                          label: const Text("주의 감지 확인"),
+                                        ),
+                                )
+                              ],
+
+                              if (isCallAlert &&
+                                  !isFallAlert &&
+                                  currentLog != null) ...[
                                 const SizedBox(height: 10),
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
-                                    onPressed: () =>
-                                        _onConfirmPressed(currentLog!.id),
+                                    onPressed: () => _onConfirmPressed(
+                                        bedKey, 'call', currentLog.id),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: Colors.blue,
                                       foregroundColor: Colors.white,
                                     ),
-                                    icon: const Icon(
-                                        Icons.notifications_off_outlined),
-                                    label: const Text("현재 위험 알림 해제"),
+                                    icon:
+                                        const Icon(Icons.notifications_active),
+                                    label: const Text("호출 확인 및 해제"),
                                   ),
                                 )
                               ]
@@ -316,31 +357,33 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 
-  Widget _buildStatusBadge(
-      SensorDataModel? log, bool isDanger, bool isCurrentFall) {
-    String text = "데이터 없음";
-    Color color = Colors.grey;
-    Color textColor = Colors.white;
+  // 배지 표시 로직 수정
+  Widget _buildStatusBadge(bool isFallAlert, bool isCallAlert, int fallType) {
+    String text = "정상";
+    Color color = Colors.green.shade100;
+    Color textColor = Colors.green.shade800;
 
-    if (log != null) {
-      if (isDanger) {
-        text = "위험 감지";
+    if (isFallAlert) {
+      if (fallType == 2) {
+        text = "낙상 발생";
         color = Colors.red;
-      } else if (isCurrentFall) {
-        text = "조치 완료";
-        color = Colors.green;
+        textColor = Colors.white;
       } else {
-        text = "정상";
-        color = Colors.green.shade100;
-        textColor = Colors.green.shade800;
+        text = "주의 상태"; // fallType == 1
+        color = Colors.orange;
+        textColor = Colors.white;
       }
+    } else if (isCallAlert) {
+      text = "호출 중";
+      color = Colors.blue;
+      textColor = Colors.white;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,

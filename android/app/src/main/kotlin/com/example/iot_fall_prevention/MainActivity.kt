@@ -1,4 +1,4 @@
-package com.example.iot_fall_prevention
+package com.example.iot_fall
 
 import io.flutter.embedding.android.FlutterActivity
 
